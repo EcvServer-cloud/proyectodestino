@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cuenta Regresiva — Novela Visual</title>
+<style>
+/* ==========================================================================
+   RESET Y BASE
+   ========================================================================== */
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html, body {
+  height:100%;
+  background:#050608;
+  font-family:'Courier New', Courier, monospace;
+  overflow:hidden;
+}
+
+body{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* ==========================================================================
+   MARCO DE TELÉFONO (tamaño fijo, idéntico en móvil y escritorio)
+   ========================================================================== */
+#marco-telefono{
+  position:relative;
+  width:380px;
+  height:760px;
+  background:#000;
+  border-radius:38px;
+  border:10px solid #000;
+  box-shadow:0 0 0 2px #262626, 0 25px 60px rgba(0,0,0,.7), 0 0 80px rgba(0,0,0,.5);
+  overflow:hidden;
+}
+
+#pantalla-juego{
+  position:relative;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  border-radius:28px;
+  background:#111;
+}
+
+/* ==========================================================================
+   BARRA DE DESCENSO (indicador de impacto, sin cronómetro numérico)
+   ========================================================================== */
+#barra-descenso-contenedor{
+  position:absolute;
+  top:0; left:0; right:0;
+  height:5px;
+  background:rgba(0,0,0,.35);
+  z-index:50;
+}
+#barra-descenso{
+  height:100%;
+  width:0%;
+  background:#e53935;
+  box-shadow:0 0 8px #e53935;
+  transition:width .15s linear;
+}
+
+/* ==========================================================================
+   ENCABEZADO: ciudad / población / fecha
+   ========================================================================== */
+#encabezado{
+  position:absolute;
+  top:16px; left:16px; right:16px;
+  z-index:40;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  color:#0e1a12;
+  text-transform:uppercase;
+  font-weight:bold;
+  letter-spacing:1px;
+  pointer-events:none;
+}
+#encabezado .linea{ font-size:15px; line-height:1.35; text-shadow:0 1px 0 rgba(255,255,255,.15); }
+#texto-fecha{ font-size:13px; }
+
+/* ==========================================================================
+   ESCENA: cielo, ciudad y misil
+   ========================================================================== */
+#escena{
+  position:absolute;
+  inset:0;
+  background-size:cover;
+  background-position:center bottom;
+  background-repeat:no-repeat;
+  transition:background-image .6s ease;
+}
+
+#img-ciudad{
+  position:absolute;
+  left:0; right:0; bottom:110px;
+  width:100%;
+  display:block;
+  pointer-events:none;
+  z-index:5;
+}
+
+#img-bomba{
+  position:absolute;
+  left:50%;
+  top:22%;
+  width:70px;
+  transform:translate(-50%,0) rotate(0deg) scale(1);
+  z-index:10;
+  filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));
+  pointer-events:none;
+}
+
+/* icono de alerta parpadeante (esquina, durante la alarma) */
+#icono-alerta{
+  position:absolute;
+  bottom:120px; left:14px;
+  width:34px;
+  z-index:12;
+  opacity:0;
+  pointer-events:none;
+  animation:parpadeoAlerta 1s infinite;
+}
+#icono-alerta img{ width:100%; display:block; }
+#icono-alerta.activo{ display:block; }
+#icono-alerta:not(.activo){ display:none; }
+@keyframes parpadeoAlerta{
+  0%,100%{ opacity:0; }
+  50%{ opacity:1; }
+}
+
+/* ==========================================================================
+   BOTÓN DE INFORMACIÓN
+   ========================================================================== */
+#boton-info{
+  position:absolute;
+  top:14px; right:14px;
+  width:64px; height:64px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  z-index:45;
+  box-shadow:0 6px 14px rgba(0,0,0,.35);
+  transition:transform .15s ease, background .4s ease;
+}
+#boton-info:active{ transform:scale(.92); }
+#boton-info svg{ width:30px; height:30px; }
+
+/* ==========================================================================
+   BOTONES INFERIORES (decisiones dinámicas)
+   ========================================================================== */
+#botones-inferiores{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  min-height:150px;
+  background:#152238;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:34px;
+  padding:18px 20px;
+  z-index:40;
+  transition:opacity .4s ease, visibility .4s ease;
+}
+#botones-inferiores.oculto{ opacity:0; visibility:hidden; pointer-events:none; }
+
+.boton-decision{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  background:none;
+  border:none;
+  cursor:pointer;
+  color:#fff;
+  font-family:inherit;
+}
+.boton-decision:active .circulo-boton{ transform:scale(.9); }
+
+.circulo-boton{
+  width:80px; height:80px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 6px 14px rgba(0,0,0,.4);
+  transition:transform .15s ease;
+}
+.circulo-boton svg{ width:38px; height:38px; }
+
+.etiqueta-boton{
+  font-weight:bold;
+  font-size:14px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+
+/* ==========================================================================
+   PANEL DE DOCUMENTOS (carrusel de imágenes)
+   ========================================================================== */
+#panel-documentos{
+  position:absolute;
+  inset:0;
+  z-index:60;
+  background:rgba(5,8,12,.94);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:70px 20px 30px;
+  opacity:0;
+  visibility:hidden;
+  transition:opacity .35s ease, visibility .35s ease;
+}
+#panel-documentos.visible{ opacity:1; visibility:visible; }
+
+#boton-cerrar-documentos{
+  position:absolute;
+  top:16px; right:16px;
+  width:40px; height:40px;
+  border-radius:50%;
+  background:rgba(255,255,255,.12);
+  border:none;
+  color:#fff;
+  font-size:18px;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+
+#contenedor-carrusel{
+  position:relative;
+  width:100%;
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+#imagen-documento{
+  max-width:100%;
+  max-height:100%;
+  border-radius:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+  object-fit:contain;
+  transition:opacity .25s ease;
+}
+
+.flecha-carrusel{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  width:44px; height:44px;
+  border-radius:50%;
+  background:rgba(255,255,255,.12);
+  border:none;
+  color:#f5d59a;
+  font-size:20px;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  z-index:5;
+}
+.flecha-carrusel:disabled{ opacity:.25; cursor:default; }
+#flecha-izquierda{ left:0; }
+#flecha-derecha{ right:0; }
+
+#indicador-documentos{
+  margin-top:14px;
+  color:#9aa3ad;
+  font-size:12px;
+  letter-spacing:2px;
+}
+
+#mensaje-sin-documentos{
+  color:#8b95a1;
+  font-size:14px;
+  text-align:center;
+  letter-spacing:1px;
+}
+
+/* ==========================================================================
+   TRANSICIONES: destello blanco / pantalla negra / texto de consecuencia
+   ========================================================================== */
+#capa-destello{
+  position:absolute; inset:0;
+  background:#fff;
+  opacity:0;
+  z-index:90;
+  pointer-events:none;
+}
+
+#capa-negra{
+  position:absolute; inset:0;
+  background:#000;
+  opacity:0;
+  z-index:80;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px;
+  pointer-events:none;
+  transition:opacity .8s ease;
+}
+#capa-negra.visible{ opacity:1; pointer-events:auto; }
+
+#texto-consecuencia{
+  color:#e7e7e7;
+  font-size:16px;
+  line-height:1.7;
+  text-align:center;
+  letter-spacing:.5px;
+  opacity:0;
+  transition:opacity 1s ease;
+}
+#texto-consecuencia.visible{ opacity:1; }
+
+/* vibración visual de la pantalla (impacto / decisión) */
+@keyframes vibracionPantalla{
+  0%,100%{ transform:translate(0,0); }
+  20%{ transform:translate(-4px,3px); }
+  40%{ transform:translate(4px,-3px); }
+  60%{ transform:translate(-3px,-2px); }
+  80%{ transform:translate(3px,2px); }
+}
+.vibrando{ animation:vibracionPantalla .4s linear 2; }
+
+/* oscilación leve del misil durante el descenso */
+@keyframes oscilarMisil{
+  0%,100%{ margin-left:0; }
+  50%{ margin-left:6px; }
+}
+
+/* pantalla de carga inicial */
+#pantalla-carga{
+  position:absolute; inset:0;
+  background:#050608;
+  color:#7d8790;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:13px;
+  letter-spacing:2px;
+  z-index:200;
+  text-transform:uppercase;
+}
+</style>
+</head>
+<body>
+
+<div id="marco-telefono">
+  <div id="pantalla-juego">
+
+    <!-- Pantalla de carga -->
+    <div id="pantalla-carga">Cargando capítulo…</div>
+
+    <!-- Barra superior de descenso -->
+    <div id="barra-descenso-contenedor">
+      <div id="barra-descenso"></div>
+    </div>
+
+    <!-- Encabezado narrativo -->
+    <div id="encabezado">
+      <div>
+        <div class="linea" id="texto-ciudad">CIUDAD:</div>
+        <div class="linea" id="texto-poblacion">POBLACIÓN:</div>
+      </div>
+      <div id="texto-fecha">FECHA</div>
+    </div>
+
+    <!-- Escena: cielo + ciudad + misil -->
+    <div id="escena">
+      <div id="icono-alerta"><img src="src/alertaomega.png" alt="alerta"></div>
+      <img id="img-ciudad" src="" alt="ciudad">
+      <img id="img-bomba" src="" alt="misil">
+    </div>
+
+    <!-- Botón de información -->
+    <div id="boton-info" title="Información">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" fill="currentColor" opacity=".0001"/>
+        <path d="M6 3h9l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" fill="#0e1a12"/>
+        <circle cx="12" cy="9" r="1.4" fill="#fff"/>
+        <rect x="10.8" y="11.5" width="2.4" height="6" rx="1.1" fill="#fff"/>
+      </svg>
+    </div>
+
+    <!-- Botones inferiores (decisiones dinámicas) -->
+    <div id="botones-inferiores"></div>
+
+    <!-- Panel de documentos -->
+    <div id="panel-documentos">
+      <button id="boton-cerrar-documentos">✕</button>
+      <div id="contenedor-carrusel">
+        <button class="flecha-carrusel" id="flecha-izquierda">&#10094;</button>
+        <img id="imagen-documento" src="" alt="documento">
+        <div id="mensaje-sin-documentos" style="display:none;">No hay documentos disponibles.</div>
+        <button class="flecha-carrusel" id="flecha-derecha">&#10095;</button>
+      </div>
+      <div id="indicador-documentos"></div>
+    </div>
+
+    <!-- Capas de transición -->
+    <div id="capa-destello"></div>
+    <div id="capa-negra">
+      <div id="texto-consecuencia"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================================
+   1. DATOS NARRATIVOS — CAPÍTULOS
+   ----------------------------------------------------------------------------
+   El motor NUNCA debe leer estos datos mediante condicionales del tipo
+   "if(capitulo==1)". Todo capítulo nuevo se agrega aquí, con su propia
+   configuración, y el motor lo interpretará automáticamente.
+   ============================================================================ */
+const CAPITULOS = [
+  {
+    id: 1,
+    nombre: "Nueva Alexandria",
+    fecha: "25 diciembre 2345",
+    ciudad: "Nueva Alexandria",
+    poblacion: "2 millones",
+    lineaTemporal: "A",
+    // Recursos gráficos (rutas reales dentro de src/)
+    fondo: "src/fondocielonuevaalexandria.png",
+    ciudadPNG: "src/ciudadnuevaalexandria.png",
+    bombaPNG: "src/bombagrisactiva.png",
+    bombaPNGDetenida: "src/bombagrisdesactivada.png",
+    // Documentos mostrados en el carrusel al pulsar el botón de información
+    documentos: [
+      "src/documento1capitulo1.png",
+      "src/documento2capitulo1.png",
+      "src/documento3capitulo1.png",
+      "src/documento4capitulo1.png"
+    ],
+    // Recursos de audio
+    sonidoAmbiente: "src/ambientedeciudad.mp3",
+    sonidoAlarma: "src/sonidoalerta1.mp3",
+    // Apariencia
+    colorCielo: "#8fe8ee",
+    colorInfo: "#2b9fe0",
+    // Tiempo de descenso del misil, en milisegundos
+    tiempoDescenso: 18000,
+    // Botones de decisión (el motor los genera dinámicamente, no asumir cantidad fija)
+    botones: [
+      {
+        id: "detener",
+        texto: "DETENER",
+        color: "#43b53f",
+        icono: "mano",
+        textoConsecuencia: "El dispositivo se detiene a escasos metros del suelo.\nNueva Alexandria respira, por ahora.",
+        siguiente: 2
+      },
+      {
+        id: "detonar",
+        texto: "DETONAR",
+        color: "#d32f2f",
+        icono: "radiacion",
+        porDefecto: true,
+        textoConsecuencia: "La orden es ejecutada.\nNueva Alexandria deja de existir en los registros.",
+        siguiente: 2
+      }
+    ]
+  },
+  {
+    id: 2,
+    nombre: "Somorra",
+    fecha: "27 diciembre 2345",
+    ciudad: "Somorra",
+    poblacion: "5 millones",
+    lineaTemporal: "A",
+    fondo: "src/fondocielosomorra.png",
+    ciudadPNG: "src/ciudadsomorra.png",
+    bombaPNG: "src/bombaroja.png",
+    bombaPNGDetenida: "src/bombaroja.png",
+    documentos: [],
+    sonidoAmbiente: "src/ambientedeciudad.mp3",
+    sonidoAlarma: "src/sonidoalerta2.mp3",
+    colorCielo: "#5f7a7c",
+    colorInfo: "#ffe1b3",
+    tiempoDescenso: 18000,
+    botones: [
+      {
+        id: "detener",
+        texto: "DETENER",
+        color: "#43b53f",
+        icono: "mano",
+        textoConsecuencia: "Somorra sobrevive a la cuenta regresiva.\nLa decisión queda registrada.",
+        siguiente: null
+      },
+      {
+        id: "detonar",
+        texto: "DETONAR",
+        color: "#d32f2f",
+        icono: "radiacion",
+        porDefecto: true,
+        textoConsecuencia: "Somorra cae.\nCinco millones de historias terminan aquí.",
+        siguiente: null
+      }
+    ]
+  }
+];
+
+/* ============================================================================
+   2. REFERENCIAS AL DOM
+   ============================================================================ */
+const el = {
+  pantallaCarga: document.getElementById('pantalla-carga'),
+  barraDescenso: document.getElementById('barra-descenso'),
+  textoCiudad: document.getElementById('texto-ciudad'),
+  textoPoblacion: document.getElementById('texto-poblacion'),
+  textoFecha: document.getElementById('texto-fecha'),
+  escena: document.getElementById('escena'),
+  imgCiudad: document.getElementById('img-ciudad'),
+  imgBomba: document.getElementById('img-bomba'),
+  iconoAlerta: document.getElementById('icono-alerta'),
+  botonInfo: document.getElementById('boton-info'),
+  botonesInferiores: document.getElementById('botones-inferiores'),
+  panelDocumentos: document.getElementById('panel-documentos'),
+  botonCerrarDocumentos: document.getElementById('boton-cerrar-documentos'),
+  imagenDocumento: document.getElementById('imagen-documento'),
+  mensajeSinDocumentos: document.getElementById('mensaje-sin-documentos'),
+  flechaIzquierda: document.getElementById('flecha-izquierda'),
+  flechaDerecha: document.getElementById('flecha-derecha'),
+  indicadorDocumentos: document.getElementById('indicador-documentos'),
+  capaDestello: document.getElementById('capa-destello'),
+  capaNegra: document.getElementById('capa-negra'),
+  textoConsecuencia: document.getElementById('texto-consecuencia'),
+  pantallaJuego: document.getElementById('pantalla-juego')
+};
+
+/* ============================================================================
+   3. SONIDOS
+   ----------------------------------------------------------------------------
+   Cada pista se controla mediante un objeto Audio independiente. Todas las
+   reproducciones están protegidas con try/catch o .catch() para que la
+   ausencia de un archivo (o restricciones de autoplay del navegador) nunca
+   detenga la ejecución del motor.
+   ============================================================================ */
+const Sonido = (function(){
+  let ambiente = null;
+  let alarma = null;
+  let audioCtx = null;
+
+  function reproducirLoop(ruta){
+    try{
+      const audio = new Audio(ruta);
+      audio.loop = true;
+      audio.volume = 0.55;
+      audio.play().catch(function(){ /* reproducción bloqueada por el navegador */ });
+      return audio;
+    }catch(e){ return null; }
+  }
+
+  function detener(audio){
+    if(!audio) return;
+    try{ audio.pause(); audio.currentTime = 0; }catch(e){}
+  }
+
+  return {
+    iniciarAmbiente: function(ruta){ detener(ambiente); ambiente = reproducirLoop(ruta); },
+    iniciarAlarma: function(ruta){ detener(alarma); alarma = reproducirLoop(ruta); },
+    detenerAmbiente: function(){ detener(ambiente); ambiente = null; },
+    detenerAlarma: function(){ detener(alarma); alarma = null; },
+    detenerTodo: function(){ detener(ambiente); detener(alarma); ambiente = null; alarma = null; },
+    explosion: function(){
+      try{
+        const audio = new Audio('src/sonidoexplosión.mp3');
+        audio.volume = 0.8;
+        audio.play().catch(function(){});
+      }catch(e){}
+    },
+    // El clic no depende de un archivo externo: se sintetiza con WebAudio
+    // para que el motor nunca falle si el recurso no existe.
+    click: function(){
+      try{
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = 620;
+        gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.08);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.08);
+      }catch(e){}
+    }
+  };
+})();
+
+/* ============================================================================
+   4. PERSISTENCIA (localStorage)
+   ----------------------------------------------------------------------------
+   Toda la partida se guarda en un único objeto. La estructura admite varias
+   líneas temporales simultáneas ("A", "B", "C"...), cada una con su propio
+   historial de decisiones y capítulos jugados, preparándose así para el
+   futuro mecanismo de viajes en el tiempo sin necesidad de reescribir el
+   motor.
+   ============================================================================ */
+const CLAVE_GUARDADO = 'novelaVisual_partida';
+
+function estadoInicial(){
+  return {
+    lineaTemporalActual: "A",
+    lineasTemporales: {
+      "A": {
+        capituloActual: CAPITULOS[0].id,
+        fechaActual: CAPITULOS[0].fecha,
+        decisiones: {},
+        capitulosJugados: []
+      }
+    }
+  };
+}
+
+function cargarPartida(){
+  try{
+    const guardado = localStorage.getItem(CLAVE_GUARDADO);
+    if(!guardado) return estadoInicial();
+    const datos = JSON.parse(guardado);
+    if(!datos.lineasTemporales || !datos.lineaTemporalActual) return estadoInicial();
+    return datos;
+  }catch(e){
+    return estadoInicial();
+  }
+}
+
+function guardarPartida(){
+  try{
+    localStorage.setItem(CLAVE_GUARDADO, JSON.stringify(partida));
+  }catch(e){ /* almacenamiento no disponible: el juego continúa sin persistencia */ }
+}
+
+function lineaActual(){
+  return partida.lineasTemporales[partida.lineaTemporalActual];
+}
+
+let partida = cargarPartida();
+
+/* ============================================================================
+   5. UTILIDADES DEL MOTOR
+   ============================================================================ */
+function obtenerCapituloPorId(id){
+  return CAPITULOS.find(function(c){ return c.id === id; }) || null;
+}
+
+// Devuelve el primer capítulo de la lista que aún no fue jugado en la línea
+// temporal activa. Si todos fueron jugados, devuelve null.
+function siguienteCapituloDisponible(){
+  const linea = lineaActual();
+  for(let i=0;i<CAPITULOS.length;i++){
+    if(linea.capitulosJugados.indexOf(CAPITULOS[i].id) === -1){
+      return CAPITULOS[i].id;
+    }
+  }
+  return null;
+}
+
+// Prepara el motor para un futuro viaje temporal: si la fecha introducida
+// coincide con un capítulo ya jugado, se abre una nueva línea temporal en
+// lugar de sobrescribir la existente.
+function iniciarViajeTemporal(fechaIntroducida){
+  const capituloDestino = CAPITULOS.find(function(c){ return c.fecha === fechaIntroducida; });
+  if(!capituloDestino) return false;
+
+  const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let nuevaLetra = null;
+  for(let i=0;i<letras.length;i++){
+    if(!partida.lineasTemporales[letras[i]]){ nuevaLetra = letras[i]; break; }
+  }
+  if(!nuevaLetra) return false;
+
+  partida.lineasTemporales[nuevaLetra] = {
+    capituloActual: capituloDestino.id,
+    fechaActual: capituloDestino.fecha,
+    decisiones: {},
+    capitulosJugados: []
+  };
+  partida.lineaTemporalActual = nuevaLetra;
+  guardarPartida();
+  return true;
+}
+// (expuesta para uso futuro, no invocada todavía por ningún capítulo actual)
+window.iniciarViajeTemporal = iniciarViajeTemporal;
+
+/* ============================================================================
+   6. ANIMACIÓN DEL MISIL
+   ----------------------------------------------------------------------------
+   Controlada por requestAnimationFrame para poder pausarla y reanudarla con
+   precisión (necesario para el panel de información), en vez de depender de
+   una transición CSS que no se puede congelar a mitad de recorrido.
+   ============================================================================ */
+const Mision = (function(){
+  let capituloActivo = null;
+  let inicio = null;
+  let acumulado = 0;          // milisegundos ya transcurridos antes de una pausa
+  let enPausa = false;
+  let animando = false;
+  let idFrame = null;
+  let resuelta = false;       // true cuando ya se tomó una decisión o hubo impacto
+
+  const RANGO_SUPERIOR = 22;   // % superior de la escena
+  const RANGO_INFERIOR = 66;   // % inferior de la escena (justo sobre la ciudad)
+
+  function frame(marcaTiempo){
+    if(enPausa || resuelta) return;
+    if(inicio === null) inicio = marcaTiempo - acumulado;
+    const transcurrido = marcaTiempo - inicio;
+    const progreso = Math.min(transcurrido / capituloActivo.tiempoDescenso, 1);
+
+    aplicarProgreso(progreso);
+
+    if(progreso >= 1){
+      resuelta = true;
+      manejarImpactoPorDefecto();
+      return;
+    }
+    idFrame = requestAnimationFrame(frame);
+  }
+
+  function aplicarProgreso(progreso){
+    const top = RANGO_SUPERIOR + (RANGO_INFERIOR - RANGO_SUPERIOR) * progreso;
+    const escala = 1 + progreso * 0.55;
+    el.imgBomba.style.top = top + "%";
+    el.imgBomba.style.transform = "translate(-50%,0) scale(" + escala.toFixed(3) + ")";
+    el.barraDescenso.style.width = (progreso * 100) + "%";
+  }
+
+  function manejarImpactoPorDefecto(){
+    // Si el descenso concluye sin que el jugador haya decidido nada, se
+    // ejecuta automáticamente el botón marcado como "porDefecto" (DETONAR).
+    const botonPorDefecto = capituloActivo.botones.find(function(b){ return b.porDefecto; })
+                             || capituloActivo.botones[0];
+    Motor.resolverDecision(capituloActivo, botonPorDefecto);
+  }
+
+  return {
+    iniciar: function(capitulo){
+      capituloActivo = capitulo;
+      inicio = null;
+      acumulado = 0;
+      enPausa = false;
+      resuelta = false;
+      animando = true;
+      el.imgBomba.classList.add('bomba-oscilando');
+      idFrame = requestAnimationFrame(frame);
+    },
+    pausar: function(){
+      if(!animando || enPausa) return;
+      enPausa = true;
+      if(idFrame) cancelAnimationFrame(idFrame);
+      // Guardamos el tiempo ya transcurrido para poder retomarlo con exactitud
+      acumulado = inicio !== null ? performance.now() - inicio : 0;
+    },
+    reanudar: function(){
+      if(!animando || !enPausa || resuelta) return;
+      enPausa = false;
+      inicio = null; // se recalcula en el próximo frame a partir de "acumulado"
+      idFrame = requestAnimationFrame(frame);
+    },
+    detener: function(){
+      animando = false;
+      resuelta = true;
+      if(idFrame) cancelAnimationFrame(idFrame);
+    },
+    marcarResuelta: function(){ resuelta = true; if(idFrame) cancelAnimationFrame(idFrame); }
+  };
+})();
+
+/* ============================================================================
+   7. INTERFAZ — Renderizado de cada capítulo
+   ============================================================================ */
+function renderizarEncabezado(capitulo){
+  el.textoCiudad.textContent = "CIUDAD: " + capitulo.ciudad.toUpperCase();
+  el.textoPoblacion.textContent = "POBLACIÓN: " + capitulo.poblacion.toUpperCase();
+  el.textoFecha.textContent = capitulo.fecha.toUpperCase();
+}
+
+function renderizarEscena(capitulo){
+  el.escena.style.backgroundImage = "url('" + capitulo.fondo + "')";
+  el.escena.style.backgroundColor = capitulo.colorCielo;
+  el.imgCiudad.src = capitulo.ciudadPNG;
+  el.imgBomba.src = capitulo.bombaPNG;
+  el.imgBomba.style.top = "22%";
+  el.imgBomba.style.transform = "translate(-50%,0) scale(1)";
+  el.barraDescenso.style.width = "0%";
+}
+
+function renderizarBotonInfo(capitulo){
+  el.botonInfo.style.background = capitulo.colorInfo;
+}
+
+// Íconos SVG reutilizables para los botones de decisión, sin depender de
+// archivos gráficos adicionales.
+const ICONOS = {
+  mano: '<svg viewBox="0 0 24 24" fill="none"><path d="M8 12V5.5a1.5 1.5 0 0 1 3 0V11m0-6a1.5 1.5 0 0 1 3 0v6m0-5a1.5 1.5 0 0 1 3 0v6m-9 1v-2a1.5 1.5 0 0 0-3 0v3c0 3.5 2.5 7 7 7h1c3.5 0 6-2.5 6-6v-4a1.5 1.5 0 0 0-3 0" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  radiacion: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="2.2" fill="#fff"/><path d="M12 2v6.2M12 22v-6.2M2.5 17l5.4-3.1M21.5 7l-5.4 3.1M2.5 7l5.4 3.1M21.5 17l-5.4-3.1" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
+  generico: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="#fff" stroke-width="2"/></svg>'
+};
+
+function renderizarBotonesInferiores(capitulo){
+  el.botonesInferiores.innerHTML = "";
+  capitulo.botones.forEach(function(boton){
+    const btn = document.createElement('button');
+    btn.className = 'boton-decision';
+    btn.innerHTML =
+      '<span class="circulo-boton" style="background:' + boton.color + '">' +
+        (ICONOS[boton.icono] || ICONOS.generico) +
+      '</span>' +
+      '<span class="etiqueta-boton">' + boton.texto + '</span>';
+    btn.addEventListener('click', function(){
+      Sonido.click();
+      Motor.resolverDecision(capitulo, boton);
+    });
+    el.botonesInferiores.appendChild(btn);
+  });
+  el.botonesInferiores.classList.remove('oculto');
+}
+
+/* ============================================================================
+   8. PANEL DE DOCUMENTOS (carrusel)
+   ============================================================================ */
+const Carrusel = (function(){
+  let documentos = [];
+  let indice = 0;
+
+  function render(){
+    if(documentos.length === 0){
+      el.imagenDocumento.style.display = 'none';
+      el.mensajeSinDocumentos.style.display = 'block';
+      el.flechaIzquierda.disabled = true;
+      el.flechaDerecha.disabled = true;
+      el.indicadorDocumentos.textContent = "";
+      return;
+    }
+    el.imagenDocumento.style.display = 'block';
+    el.mensajeSinDocumentos.style.display = 'none';
+    el.imagenDocumento.style.opacity = 0;
+    requestAnimationFrame(function(){
+      el.imagenDocumento.src = documentos[indice];
+      el.imagenDocumento.style.opacity = 1;
+    });
+    el.flechaIzquierda.disabled = (indice === 0);
+    el.flechaDerecha.disabled = (indice === documentos.length - 1);
+    el.indicadorDocumentos.textContent = (indice + 1) + " / " + documentos.length;
+  }
+
+  return {
+    cargar: function(listaDocumentos){
+      documentos = listaDocumentos || [];
+      indice = 0;
+      render();
+    },
+    anterior: function(){ if(indice > 0){ indice--; render(); } },
+    siguiente: function(){ if(indice < documentos.length - 1){ indice++; render(); } }
+  };
+})();
+
+el.flechaIzquierda.addEventListener('click', function(){ Sonido.click(); Carrusel.anterior(); });
+el.flechaDerecha.addEventListener('click', function(){ Sonido.click(); Carrusel.siguiente(); });
+
+el.botonInfo.addEventListener('click', function(){
+  Sonido.click();
+  Motor.abrirDocumentos();
+});
+el.botonCerrarDocumentos.addEventListener('click', function(){
+  Sonido.click();
+  Motor.cerrarDocumentos();
+});
+
+/* ============================================================================
+   9. TRANSICIONES (fade, destello blanco, vibración, pantalla negra)
+   ============================================================================ */
+const Transiciones = {
+  destelloBlanco: function(){
+    return new Promise(function(resolve){
+      el.capaDestello.style.transition = 'opacity .12s ease';
+      el.capaDestello.style.opacity = '1';
+      setTimeout(function(){
+        el.capaDestello.style.transition = 'opacity .5s ease';
+        el.capaDestello.style.opacity = '0';
+        setTimeout(resolve, 500);
+      }, 120);
+    });
+  },
+  vibrar: function(){
+    el.pantallaJuego.classList.add('vibrando');
+    if(navigator.vibrate) { try{ navigator.vibrate([80,40,80]); }catch(e){} }
+    setTimeout(function(){ el.pantallaJuego.classList.remove('vibrando'); }, 800);
+  },
+  mostrarConsecuencia: function(texto){
+    return new Promise(function(resolve){
+      el.textoConsecuencia.textContent = texto;
+      el.capaNegra.classList.add('visible');
+      setTimeout(function(){
+        el.textoConsecuencia.classList.add('visible');
+      }, 300);
+      setTimeout(resolve, 2600);
+    });
+  },
+  ocultarConsecuencia: function(){
+    return new Promise(function(resolve){
+      el.textoConsecuencia.classList.remove('visible');
+      setTimeout(function(){
+        el.capaNegra.classList.remove('visible');
+        setTimeout(resolve, 800);
+      }, 400);
+    });
+  }
+};
+
+/* ============================================================================
+   10. MOTOR NARRATIVO PRINCIPAL
+   ============================================================================ */
+const Motor = {
+
+  // Carga un capítulo por id y dibuja toda la interfaz correspondiente.
+  iniciarCapitulo: function(id){
+    const capitulo = obtenerCapituloPorId(id);
+    if(!capitulo){
+      Motor.mostrarFinDisponible();
+      return;
+    }
+
+    renderizarEncabezado(capitulo);
+    renderizarEscena(capitulo);
+    renderizarBotonInfo(capitulo);
+    renderizarBotonesInferiores(capitulo);
+    el.botonesInferiores.classList.remove('oculto');
+    el.iconoAlerta.classList.add('activo');
+
+    Sonido.iniciarAmbiente(capitulo.sonidoAmbiente);
+    Sonido.iniciarAlarma(capitulo.sonidoAlarma);
+
+    Mision.iniciar(capitulo);
+
+    const linea = lineaActual();
+    linea.capituloActual = capitulo.id;
+    linea.fechaActual = capitulo.fecha;
+    guardarPartida();
+  },
+
+  // Botón de información: congela el misil exactamente donde está.
+  abrirDocumentos: function(){
+    Mision.pausar();
+    el.botonesInferiores.classList.add('oculto');
+    const capitulo = obtenerCapituloPorId(lineaActual().capituloActual);
+    Carrusel.cargar(capitulo.documentos);
+    el.panelDocumentos.classList.add('visible');
+  },
+
+  // Cierra el panel y retoma el descenso desde el punto exacto de la pausa.
+  cerrarDocumentos: function(){
+    el.panelDocumentos.classList.remove('visible');
+    el.botonesInferiores.classList.remove('oculto');
+    Mision.reanudar();
+  },
+
+  // Procesa una decisión (o el impacto automático) y guarda el resultado
+  // inmediatamente, sin pedir confirmación.
+  resolverDecision: function(capitulo, boton){
+    Mision.marcarResuelta();
+    el.botonesInferiores.classList.add('oculto');
+    el.iconoAlerta.classList.remove('activo');
+    Sonido.detenerAlarma();
+
+    const linea = lineaActual();
+    linea.decisiones["capitulo" + capitulo.id] = boton.id;
+    if(linea.capitulosJugados.indexOf(capitulo.id) === -1){
+      linea.capitulosJugados.push(capitulo.id);
+    }
+    guardarPartida();
+
+    const esDetonacion = (boton.id === 'detonar' || boton.porDefecto === true);
+
+    Transiciones.vibrar();
+
+    (esDetonacion ? (function(){ Sonido.explosion(); return Transiciones.destelloBlanco(); })()
+                  : Transiciones.destelloBlanco())
+      .then(function(){
+        return Transiciones.mostrarConsecuencia(boton.textoConsecuencia || "");
+      })
+      .then(function(){
+        return Transiciones.ocultarConsecuencia();
+      })
+      .then(function(){
+        Sonido.detenerAmbiente();
+        Motor.avanzar(boton.siguiente);
+      });
+  },
+
+  // Determina el próximo capítulo respetando el bloqueo de capítulos ya
+  // jugados: si el capítulo indicado ya fue jugado en esta línea temporal,
+  // el motor abre automáticamente el siguiente disponible.
+  avanzar: function(idSiguiente){
+    const linea = lineaActual();
+
+    if(idSiguiente === null || idSiguiente === undefined){
+      Motor.mostrarFinDisponible();
+      return;
+    }
+
+    if(linea.capitulosJugados.indexOf(idSiguiente) !== -1){
+      const disponible = siguienteCapituloDisponible();
+      if(disponible === null){
+        Motor.mostrarFinDisponible();
+        return;
+      }
+      Motor.iniciarCapitulo(disponible);
+      return;
+    }
+
+    Motor.iniciarCapitulo(idSiguiente);
+  },
+
+  // Pantalla final cuando no quedan capítulos disponibles en el arreglo.
+  mostrarFinDisponible: function(){
+    el.iconoAlerta.classList.remove('activo');
+    el.textoCiudad.textContent = "";
+    el.textoPoblacion.textContent = "";
+    el.textoFecha.textContent = "";
+    el.imgBomba.style.display = 'none';
+    el.capaNegra.classList.add('visible');
+    el.textoConsecuencia.textContent = "Continuará…\n\nNo hay más capítulos disponibles en esta línea temporal.";
+    el.textoConsecuencia.classList.add('visible');
+  },
+
+  // Punto de entrada: retoma la partida guardada o comienza desde el
+  // primer capítulo, respetando el bloqueo de capítulos ya jugados.
+  arrancar: function(){
+    const linea = lineaActual();
+    let idInicial = linea.capituloActual;
+
+    if(linea.capitulosJugados.indexOf(idInicial) !== -1){
+      const disponible = siguienteCapituloDisponible();
+      idInicial = disponible;
+    }
+
+    el.pantallaCarga.style.transition = 'opacity .4s ease';
+    el.pantallaCarga.style.opacity = '0';
+    setTimeout(function(){ el.pantallaCarga.style.display = 'none'; }, 400);
+
+    if(idInicial === null){
+      Motor.mostrarFinDisponible();
+      return;
+    }
+    Motor.iniciarCapitulo(idInicial);
+  }
+};
+
+/* ============================================================================
+   11. ARRANQUE
+   ============================================================================ */
+window.addEventListener('load', function(){
+  // Pequeño margen para que las imágenes empiecen a precargarse.
+  setTimeout(Motor.arrancar, 300);
+});
+
+})();
+</script>
+</body>
+</html>
